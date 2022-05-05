@@ -5,10 +5,14 @@ from logger import TensorboardWriter
 
 
 class BaseTrainer:
-    """
-    Base class for all trainers
-    """
     def __init__(self, model, criterion, metric_ftns, optimizer, config):
+        """
+        @param model: 实例化的torch模型，模型的类写在model.model文件下
+        @param criterion: 自己编写损失函数的函数句柄，
+        @param metric_ftns: 为list of 函数句柄，这里的函数句柄计算的数据会在tensorboard scalar中显示，函数写在model.metric下
+        @param optimizer: torch.optim的诸多优化器类中的一个实例
+        @param config: 实例化的parse_config.ConfugParser类
+        """
         self.config = config
         self.logger = config.get_logger('trainer', config['trainer']['verbosity'])
 
@@ -57,10 +61,11 @@ class BaseTrainer:
     def train(self):
         """
         Full training logic
+        写了整个训练过程中的逻辑，其实就是重复运行单步训练逻辑，单步训练逻辑写在trainer.trainer.Trainer类中的方法_train_epoch中
         """
         not_improved_count = 0
         for epoch in range(self.start_epoch, self.epochs + 1):
-            result = self._train_epoch(epoch)
+            result = self._train_epoch(epoch)  # 运行单步
 
             # save logged informations into log dict
             log = {'epoch': epoch}

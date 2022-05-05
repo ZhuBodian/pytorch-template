@@ -17,7 +17,7 @@ class Trainer(BaseTrainer):
         self.data_loader = data_loader
         if len_epoch is None:
             # epoch-based training
-            self.len_epoch = len(self.data_loader)
+            self.len_epoch = len(self.data_loader)  # 返回可迭代对象的迭代长度
         else:
             # iteration-based training
             self.data_loader = inf_loop(data_loader)
@@ -25,7 +25,7 @@ class Trainer(BaseTrainer):
         self.valid_data_loader = valid_data_loader
         self.do_validation = self.valid_data_loader is not None
         self.lr_scheduler = lr_scheduler
-        self.log_step = int(np.sqrt(data_loader.batch_size))
+        self.log_step = int(np.sqrt(data_loader.batch_size))  # 用来控制多少步显示一次输出
 
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
@@ -37,8 +37,8 @@ class Trainer(BaseTrainer):
         :param epoch: Integer, current training epoch.
         :return: A log that contains average loss and metric in this epoch.
         """
-        self.model.train()
-        self.train_metrics.reset()
+        self.model.train()  # 调用的是nn.model.train()设置为训练模式
+        self.train_metrics.reset()  # 运行本次epoch之前，先把跟踪日志清0重置
         for batch_idx, (data, target) in enumerate(self.data_loader):
             data, target = data.to(self.device), target.to(self.device)
 
@@ -48,6 +48,8 @@ class Trainer(BaseTrainer):
             loss.backward()
             self.optimizer.step()
 
+            # 传入当前运行属于第几个step（第几个batch）
+            # 当前的epoch次序*单个epoch的总step数+当前epoch的step次序
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
             self.train_metrics.update('loss', loss.item())
             for met in self.metric_ftns:
@@ -100,6 +102,7 @@ class Trainer(BaseTrainer):
         return self.valid_metrics.result()
 
     def _progress(self, batch_idx):
+        # 输出str，用于生成训练进度的str的函数
         base = '[{}/{} ({:.0f}%)]'
         if hasattr(self.data_loader, 'n_samples'):
             current = batch_idx * self.data_loader.batch_size

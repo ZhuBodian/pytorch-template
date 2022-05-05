@@ -30,6 +30,7 @@ class TensorboardWriter():
         self.step = 0
         self.mode = ''
 
+        # tensorboard的几种可选跟踪项
         self.tb_writer_ftns = {
             'add_scalar', 'add_scalars', 'add_image', 'add_images', 'add_audio',
             'add_text', 'add_histogram', 'add_pr_curve', 'add_embedding'
@@ -55,7 +56,7 @@ class TensorboardWriter():
             return a blank function handle that does nothing
         """
         if name in self.tb_writer_ftns:
-            add_data = getattr(self.writer, name, None)
+            add_data = getattr(self.writer, name, None)  # 返回tensorboard响应跟踪的函数句柄
 
             def wrapper(tag, data, *args, **kwargs):
                 if add_data is not None:

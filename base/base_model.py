@@ -18,8 +18,9 @@ class BaseModel(nn.Module):
 
     def __str__(self):
         """
-        Model prints with number of trainable parameters
+        Model prints with number of trainable parameters。
+        print（model）显示可训练参数的数量
         """
-        model_parameters = filter(lambda p: p.requires_grad, self.parameters())
+        model_parameters = filter(lambda p: p.requires_grad, self.parameters())  # temp=list(model_parameters)可查看可迭代对象
         params = sum([np.prod(p.size()) for p in model_parameters])
         return super().__str__() + '\nTrainable parameters: {}'.format(params)

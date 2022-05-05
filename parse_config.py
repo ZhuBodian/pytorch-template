@@ -23,7 +23,7 @@ class ConfigParser:
         self.resume = resume
 
         # set save_dir where trained model and log will be saved.
-        save_dir = Path(self.config['trainer']['save_dir'])
+        save_dir = Path(self.config['trainer']['save_dir'])  # 嵌套对象，所以这样调用
 
         exper_name = self.config['name']
         if run_id is None: # use timestamp as default run-id
@@ -32,7 +32,7 @@ class ConfigParser:
         self._log_dir = save_dir / 'log' / exper_name / run_id
 
         # make directory for saving checkpoints and log.
-        exist_ok = run_id == ''
+        exist_ok = run_id == ''  # 注意返回的是一个bool类型
         self.save_dir.mkdir(parents=True, exist_ok=exist_ok)
         self.log_dir.mkdir(parents=True, exist_ok=exist_ok)
 
@@ -68,17 +68,17 @@ class ConfigParser:
             resume = None
             cfg_fname = Path(args.config)
         
-        config = read_json(cfg_fname)
+        config = read_json(cfg_fname)  # 类型为OrderedDict，读取当定义的config文件
         if args.config and resume:
             # update new config for fine-tuning
             config.update(read_json(args.config))
 
         # parse custom cli options into dictionary
-        modification = {opt.target : getattr(args, _get_opt_name(opt.flags)) for opt in options}
-        return cls(config, resume, modification)
+        modification = {opt.target : getattr(args, _get_opt_name(opt.flags)) for opt in options}  # None代表不修改
+        return cls(config, resume, modification)  # 返回的是一个初始化好的类
 
     def init_obj(self, name, module, *args, **kwargs):
-        """
+        """实例化module.name；module为外部导入的库；name为str类型
         Finds a function handle with the name given as 'type' in config, and returns the
         instance initialized with corresponding arguments given.
 
@@ -86,10 +86,11 @@ class ConfigParser:
         is equivalent to
         `object = module.name(a, b=1)`
         """
-        module_name = self[name]['type']
-        module_args = dict(self[name]['args'])
+        module_name = self[name]['type']  # 由于定义的函数__getitem__，所以self[name]等价于self.config[name]
+        module_args = dict(self[name]['args'])  # 外层的dict将有序字典化为无序字典,用于后续作为初始化关键字参数
         assert all([k not in module_args for k in kwargs]), 'Overwriting kwargs given in config file is not allowed'
-        module_args.update(kwargs)
+        module_args.update(kwargs)  # 更新module_args字典（如果需要的话）
+        # getattr(module, module_name)获得的实际上就是类module.module_name的句柄， 后面的(*args, **module_args) 相当于实例化参数
         return getattr(module, module_name)(*args, **module_args)
 
     def init_ftn(self, name, module, *args, **kwargs):
@@ -112,10 +113,11 @@ class ConfigParser:
         return self.config[name]
 
     def get_logger(self, name, verbosity=2):
+        """ 创建一个指定名字的标准库日志文件 """
         msg_verbosity = 'verbosity option {} is invalid. Valid options are {}.'.format(verbosity, self.log_levels.keys())
         assert verbosity in self.log_levels, msg_verbosity
-        logger = logging.getLogger(name)
-        logger.setLevel(self.log_levels[verbosity])
+        logger = logging.getLogger(name)  # 通过标准库函数创建一个日志文件
+        logger.setLevel(self.log_levels[verbosity])  # 设置日志级别
         return logger
 
     # setting read-only attributes
@@ -149,7 +151,8 @@ def _get_opt_name(flags):
 
 def _set_by_path(tree, keys, value):
     """Set a value in a nested object in tree by sequence of keys."""
-    keys = keys.split(';')
+    # 这里的tree是一个OrderedDict类型的嵌套对象
+    keys = keys.split(';')  # str按指定的分隔符进行分割
     _get_by_path(tree, keys[:-1])[keys[-1]] = value
 
 def _get_by_path(tree, keys):

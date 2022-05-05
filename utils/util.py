@@ -44,18 +44,20 @@ def prepare_device(n_gpu_use):
     return device, list_ids
 
 class MetricTracker:
+    """用于跟踪tensorboard scalar中的数据的类"""
     def __init__(self, *keys, writer=None):
         self.writer = writer
         self._data = pd.DataFrame(index=keys, columns=['total', 'counts', 'average'])
         self.reset()
 
     def reset(self):
+        # 全置0
         for col in self._data.columns:
             self._data[col].values[:] = 0
 
     def update(self, key, value, n=1):
         if self.writer is not None:
-            self.writer.add_scalar(key, value)
+            self.writer.add_scalar(key, value)  # 如果没有这个属性，由__getattr__函数，其会创建一个
         self._data.total[key] += value * n
         self._data.counts[key] += n
         self._data.average[key] = self._data.total[key] / self._data.counts[key]
@@ -64,4 +66,5 @@ class MetricTracker:
         return self._data.average[key]
 
     def result(self):
+        # 返回计算跟踪的metric的平均值的字典形式
         return dict(self._data.average)

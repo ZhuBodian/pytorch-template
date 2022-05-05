@@ -2,13 +2,21 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data.sampler import SubsetRandomSampler
-
+from sklearn.model_selection import StratifiedShuffleSplit
 
 class BaseDataLoader(DataLoader):
     """
     Base class for all data loaders
     """
     def __init__(self, dataset, batch_size, shuffle, validation_split, num_workers, collate_fn=default_collate):
+        """
+        @param dataset: torchvision.datasets的实例化类
+        @param batch_size:
+        @param shuffle:
+        @param validation_split: 验证集比例，0~1
+        @param num_workers:
+        @param collate_fn:
+        """
         self.validation_split = validation_split
         self.shuffle = shuffle
 
@@ -27,9 +35,11 @@ class BaseDataLoader(DataLoader):
         super().__init__(sampler=self.sampler, **self.init_kwargs)
 
     def _split_sampler(self, split):
+        """这个就是随机抽样，mnist各类别均匀，随机抽样倒是也行，但是对于不均匀样本还是分层抽样"""
         if split == 0.0:
             return None, None
 
+        """原代码是随机抽样，自己改为分层抽样
         idx_full = np.arange(self.n_samples)
 
         np.random.seed(0)
@@ -51,6 +61,14 @@ class BaseDataLoader(DataLoader):
         # turn off shuffle option which is mutually exclusive with sampler
         self.shuffle = False
         self.n_samples = len(train_idx)
+        """
+
+        split = StratifiedShuffleSplit(n_splits=1, test_size=split, random_state=42)
+        for train_index, valid_index in split.split(np.array(self.dataset.data), np.array(self.dataset.targets)):
+            train_sampler, valid_sampler = SubsetRandomSampler(train_index), SubsetRandomSampler(valid_index)
+
+        self.shuffle = False
+        self.n_samples = len(train_index)
 
         return train_sampler, valid_sampler
 
