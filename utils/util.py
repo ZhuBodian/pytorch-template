@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 from itertools import repeat
 from collections import OrderedDict
-
+from utils import global_var
 
 def ensure_dir(dirname):
     dirname = Path(dirname)
@@ -34,10 +34,14 @@ def prepare_device(n_gpu_use):
     if n_gpu_use > 0 and n_gpu == 0:
         print("Warning: There\'s no GPU available on this machine,"
               "training will be performed on CPU.")
+        global_var.get_value('email_log').add_log("Warning: There\'s no GPU available on this machine,training will be performed on CPU.")
+
         n_gpu_use = 0
     if n_gpu_use > n_gpu:
         print(f"Warning: The number of GPU\'s configured to use is {n_gpu_use}, but only {n_gpu} are "
               "available on this machine.")
+        global_var.get_value('email_log').add_log(f"Warning: The number of GPU\'s configured to use is {n_gpu_use}, but only {n_gpu} are available on this machine.")
+
         n_gpu_use = n_gpu
     device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
     list_ids = list(range(n_gpu_use))

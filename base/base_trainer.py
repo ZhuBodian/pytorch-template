@@ -2,7 +2,7 @@ import torch
 from abc import abstractmethod
 from numpy import inf
 from logger import TensorboardWriter
-
+from utils import global_var
 
 class BaseTrainer:
     def __init__(self, model, criterion, metric_ftns, optimizer, config):
@@ -74,6 +74,7 @@ class BaseTrainer:
             # print logged informations to the screen
             for key, value in log.items():
                 self.logger.info('    {:15s}: {}'.format(str(key), value))
+                global_var.get_value('email_log').add_log('    {:15s}: {}'.format(str(key), value))
 
             # evaluate model performance according to configured metric, save best checkpoint as model_best
             best = False
@@ -83,8 +84,10 @@ class BaseTrainer:
                     improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
                                (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
                 except KeyError:
-                    self.logger.warning("Warning: Metric '{}' is not found. "
-                                        "Model performance monitoring is disabled.".format(self.mnt_metric))
+                    self.logger.warning(
+                        f"Warning: Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
+                    global_var.get_value('email_log').add_log(
+                        f"Warning: Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
                     self.mnt_mode = 'off'
                     improved = False
 
@@ -96,8 +99,10 @@ class BaseTrainer:
                     not_improved_count += 1
 
                 if not_improved_count > self.early_stop:
-                    self.logger.info("Validation performance didn\'t improve for {} epochs. "
-                                     "Training stops.".format(self.early_stop))
+                    self.logger.info(
+                        f"Validation performance didn\'t improve for {self.early_stop} epochs. Training stops.")
+                    global_var.get_value('email_log').add_log(
+                        f"Validation performance didn\'t improve for {self.early_stop} epochs. Training stops.")
                     break
 
             if epoch % self.save_period == 0:
@@ -122,11 +127,13 @@ class BaseTrainer:
         }
         filename = str(self.checkpoint_dir / 'checkpoint-epoch{}.pth'.format(epoch))
         torch.save(state, filename)
-        self.logger.info("Saving checkpoint: {} ...".format(filename))
+        self.logger.info(f"Saving checkpoint: {filename} ...")
+        global_var.get_value('email_log').add_log(f"Saving checkpoint: {filename} ...")
         if save_best:
             best_path = str(self.checkpoint_dir / 'model_best.pth')
             torch.save(state, best_path)
             self.logger.info("Saving current best: model_best.pth ...")
+            global_var.get_value('email_log').add_log("Saving current best: model_best.pth ...")
 
     def _resume_checkpoint(self, resume_path):
         """
@@ -135,7 +142,8 @@ class BaseTrainer:
         :param resume_path: Checkpoint path to be resumed
         """
         resume_path = str(resume_path)
-        self.logger.info("Loading checkpoint: {} ...".format(resume_path))
+        self.logger.info(f"Loading checkpoint: {resume_path} ...")
+        global_var.get_value('email_log').add_log(f"Loading checkpoint: {resume_path} ...")
         checkpoint = torch.load(resume_path)
         self.start_epoch = checkpoint['epoch'] + 1
         self.mnt_best = checkpoint['monitor_best']
@@ -144,13 +152,16 @@ class BaseTrainer:
         if checkpoint['config']['arch'] != self.config['arch']:
             self.logger.warning("Warning: Architecture configuration given in config file is different from that of "
                                 "checkpoint. This may yield an exception while state_dict is being loaded.")
+            global_var.get_value('email_log').add_log("Warning: Architecture configuration given in config file is different from that of checkpoint. This may yield an exception while state_dict is being loaded.")
         self.model.load_state_dict(checkpoint['state_dict'])
 
         # load optimizer state from checkpoint only when optimizer type is not changed.
         if checkpoint['config']['optimizer']['type'] != self.config['optimizer']['type']:
             self.logger.warning("Warning: Optimizer type given in config file is different from that of checkpoint. "
                                 "Optimizer parameters not being resumed.")
+            global_var.get_value('email_log').add_log("Warning: Optimizer type given in config file is different from that of checkpoint. Optimizer parameters not being resumed.")
         else:
             self.optimizer.load_state_dict(checkpoint['optimizer'])
 
-        self.logger.info("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
+        self.logger.info(f"Checkpoint loaded. Resume training from epoch {self.start_epoch}")
+        global_var.get_value('email_log').add_log(f"Checkpoint loaded. Resume training from epoch {self.start_epoch}")
