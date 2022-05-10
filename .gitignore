@@ -105,8 +105,10 @@ data/
 input/
 saved/
 datasets/
+utils/send_email.py
 
 # editor, os cache directory
 .vscode/
 .idea/
 __MACOSX/
+
