@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data.sampler import SubsetRandomSampler
 from sklearn.model_selection import StratifiedShuffleSplit
+import torch
 
 
 class BaseDataLoader(DataLoader):
@@ -42,7 +43,7 @@ class BaseDataLoader(DataLoader):
             'collate_fn': collate_fn,
             'num_workers': num_workers
         }
-        super().__init__(sampler=self.sampler, **self.init_kwargs)
+        super().__init__(sampler=self.sampler, **self.init_kwargs, pin_memory=torch.cuda.is_available())
 
     def _split_sampler(self, split, assigned_val):
         """这个就是随机抽样，mnist各类别均匀，随机抽样倒是也行，但是对于不均匀样本还是分层抽样"""

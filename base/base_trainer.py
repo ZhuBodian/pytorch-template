@@ -25,6 +25,14 @@ class BaseTrainer:
         self.epochs = cfg_trainer['epochs']
         self.save_period = cfg_trainer['save_period']
         self.monitor = cfg_trainer.get('monitor', 'off')
+        self.save_non_optimum = cfg_trainer['save_non_optimum']
+
+        if self.save_non_optimum:
+            # 如果保存非最佳结果，那么根据save_period判断几个epoch保存一次
+            assert self.save_period is not None, 'since save_non_optimum is true, save_period should not be None'
+        else:
+            # 如果不保存非最佳，那么save_period应为none
+            assert self.save_period is None, 'since save_non_optimum is false, save_period should be None'
 
         # configuration to monitor model performance and save best
         if self.monitor == 'off':
@@ -105,10 +113,14 @@ class BaseTrainer:
                         f"Validation performance didn\'t improve for {self.early_stop} epochs. Training stops.")
                     break
 
-            if epoch % self.save_period == 0:
-                self._save_checkpoint(epoch, save_best=best)
+            if best:
+                self._save_best_checkpoint(epoch)
 
-    def _save_checkpoint(self, epoch, save_best=False):
+            if self.save_non_optimum:
+                if epoch % self.save_period == 0:
+                    self._save_non_optimum_opcheckpoint(epoch)
+
+    def _save_non_optimum_opcheckpoint(self, epoch):
         """
         Saving checkpoints
 
@@ -129,11 +141,21 @@ class BaseTrainer:
         torch.save(state, filename)
         self.logger.info(f"Saving checkpoint: {filename} ...")
         global_var.get_value('email_log').add_log(f"Saving checkpoint: {filename} ...")
-        if save_best:
-            best_path = str(self.checkpoint_dir / 'model_best.pth')
-            torch.save(state, best_path)
-            self.logger.info("Saving current best: model_best.pth ...")
-            global_var.get_value('email_log').add_log("Saving current best: model_best.pth ...")
+
+    def _save_best_checkpoint(self, epoch):
+        arch = type(self.model).__name__
+        state = {
+            'arch': arch,
+            'epoch': epoch,
+            'state_dict': self.model.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'monitor_best': self.mnt_best,
+            'config': self.config
+        }
+        best_path = str(self.checkpoint_dir / 'model_best.pth')
+        torch.save(state, best_path)
+        self.logger.info("Saving current best: model_best.pth ...")
+        global_var.get_value('email_log').add_log("Saving current best: model_best.pth ...")
 
     def _resume_checkpoint(self, resume_path):
         """
