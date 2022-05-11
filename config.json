@@ -14,7 +14,8 @@
             "shuffle": true,
             "validation_split": 0.1,
             "num_workers": 2,
-            "assign_val_sample": false
+            "assign_val_sample": false,
+            "augment_pics": 1
         }
     },
     "optimizer": {
