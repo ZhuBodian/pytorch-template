@@ -58,7 +58,7 @@ class Trainer(BaseTrainer):
             if batch_idx % self.log_step == 0:
                 self.logger.debug(f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
                 global_var.get_value('email_log').add_log(f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
-                self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
+                # self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))  # 这个巨耗时间，一个batch0.05s，这个能花几十秒
 
             if batch_idx == self.len_epoch:
                 break
@@ -92,7 +92,7 @@ class Trainer(BaseTrainer):
                 self.valid_metrics.update('loss', loss.item())
                 for met in self.metric_ftns:
                     self.valid_metrics.update(met.__name__, met(output, target))
-                self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
+                # self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
 
         # add histogram of model parameters to the tensorboard
         for name, p in self.model.named_parameters():
