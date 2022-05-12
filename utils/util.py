@@ -5,6 +5,7 @@ from pathlib import Path
 from itertools import repeat
 from collections import OrderedDict
 from utils import global_var
+import time
 
 def ensure_dir(dirname):
     dirname = Path(dirname)
@@ -47,6 +48,7 @@ def prepare_device(n_gpu_use):
     list_ids = list(range(n_gpu_use))
     return device, list_ids
 
+
 class MetricTracker:
     """用于跟踪tensorboard scalar中的数据的类"""
     def __init__(self, *keys, writer=None):
@@ -72,3 +74,14 @@ class MetricTracker:
     def result(self):
         # 返回计算跟踪的metric的平均值的字典形式
         return dict(self._data.average)
+
+
+class MyTimer:
+    def __init__(self, timer_reason):
+        self.start_timer = time.time()
+        self.stop_timer = time.time()
+        self.timer_reason = timer_reason
+
+    def stop(self):
+        self.stop_timer = time.time()
+        print(f'"{self.timer_reason}" cost time: {self.stop_timer - self.start_timer}s')
