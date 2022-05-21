@@ -1,4 +1,7 @@
 import argparse
+
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 from tqdm import tqdm
 import data_loader.data_loaders as module_data
@@ -6,6 +9,7 @@ import model.loss as module_loss
 import model.metric as module_metric
 import model.model as module_arch
 from parse_config import ConfigParser
+from sklearn.metrics import confusion_matrix
 
 
 def main(config):
@@ -44,10 +48,16 @@ def main(config):
     total_loss = 0.0
     total_metrics = torch.zeros(len(metric_fns))
 
+    all_target = []
+    all_predict = []
+
     with torch.no_grad():
         for i, (data, target) in enumerate(tqdm(data_loader)):
             data, target = data.to(device), target.to(device)
             output = model(data)
+
+            all_target += list(target.numpy())
+            all_predict += list(torch.argmax(output, dim=1).numpy())
 
             #
             # save sample images, or do something with output here
@@ -66,6 +76,29 @@ def main(config):
         met.__name__: total_metrics[i].item() / n_samples for i, met in enumerate(metric_fns)
     })
     logger.info(log)
+
+    cm = confusion_matrix(all_target, all_predict)
+    print(f'confusion matrix is: \n {cm}')
+
+    # 画出混淆矩阵图
+    plt.Figure()
+    plt.matshow(cm, cmap=plt.cm.gray)
+    plt.title('confusion_matrix plot')
+    plt.xlabel('true label')
+    plt.ylabel('predict label')
+    plt.show()
+    plt.close()
+
+    row_sums = cm.sum(axis=1, keepdims=True)
+    norm_cm = cm / row_sums  # 为防止类别图片数量不均衡，计算错误率
+    np.fill_diagonal(norm_cm, 0)  # 用0填充对角线，只保留错误
+    plt.Figure()
+    plt.matshow(norm_cm, cmap=plt.cm.gray)
+    plt.title('norm_confusion_matrix plot')
+    plt.xlabel('true label')
+    plt.ylabel('predict label')
+    plt.show()
+    plt.close()
 
 
 if __name__ == '__main__':
