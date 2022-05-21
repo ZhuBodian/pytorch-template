@@ -1,5 +1,4 @@
 import argparse
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -10,6 +9,7 @@ import model.metric as module_metric
 import model.model as module_arch
 from parse_config import ConfigParser
 from sklearn.metrics import confusion_matrix
+import pathlib
 
 
 def main(config):
@@ -33,8 +33,13 @@ def main(config):
     loss_fn = getattr(module_loss, config['loss'])
     metric_fns = [getattr(module_metric, met) for met in config['metrics']]
 
+    # autodl训练，另一台机器验证，需要更改以下路径，参考https://stackoverflow.com/questions/57286486/i-cant-load-my-model-because-i-cant-put-a-posixpath
+    temp = pathlib.PosixPath
+    pathlib.PosixPath = pathlib.WindowsPath
+    map_location = 'cuda:0' if torch.cuda.is_available() else 'cpu'  # 在有gpu的机子训练，无gpu的机子测试，不带这个可能出错
+
     logger.info('Loading checkpoint: {} ...'.format(config.resume))
-    checkpoint = torch.load(config.resume)
+    checkpoint = torch.load(config.resume, map_location=map_location)
     state_dict = checkpoint['state_dict']
     if config['n_gpu'] > 1:
         model = torch.nn.DataParallel(model)
@@ -80,15 +85,7 @@ def main(config):
     cm = confusion_matrix(all_target, all_predict)
     print(f'confusion matrix is: \n {cm}')
 
-    # 画出混淆矩阵图
-    plt.Figure()
-    plt.matshow(cm, cmap=plt.cm.gray)
-    plt.title('confusion_matrix plot')
-    plt.xlabel('true label')
-    plt.ylabel('predict label')
-    plt.show()
-    plt.close()
-
+    # 画出改进的混淆矩阵图
     row_sums = cm.sum(axis=1, keepdims=True)
     norm_cm = cm / row_sums  # 为防止类别图片数量不均衡，计算错误率
     np.fill_diagonal(norm_cm, 0)  # 用0填充对角线，只保留错误
