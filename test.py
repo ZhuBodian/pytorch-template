@@ -10,10 +10,14 @@ import model.model as module_arch
 from parse_config import ConfigParser
 from sklearn.metrics import confusion_matrix
 import pathlib
+import utils
+import os
+import pandas as pd
 
 
 def main(config):
     logger = config.get_logger('test')
+    root = config['data_loader']['args']['data_dir']
 
     # setup data_loader instances
     data_loader = getattr(module_data, config['data_loader']['type'])(
@@ -83,22 +87,36 @@ def main(config):
     logger.info(log)
 
     cm = confusion_matrix(all_target, all_predict)
-    print(f'confusion matrix is: \n {cm}')
 
-    # 画出改进的混淆矩阵图
     row_sums = cm.sum(axis=1, keepdims=True)
     norm_cm = cm / row_sums  # 为防止类别图片数量不均衡，计算错误率
     np.fill_diagonal(norm_cm, 0)  # 用0填充对角线，只保留错误
-    plt.Figure()
+
+    # 保存混淆矩阵
+    json_path = os.path.join(root, 'num2text_label.json')
+    if os.path.exists(json_path):
+        num2text_label = utils.read_json(json_path)
+    else:
+        print(f'file {json_path} not exist, test_norm_cm_df.csv will use num label')
+        num2text_label = dict([(i, i) for i in range(len(row_sums))])
+    text_label = [num2text_label[key] for key in num2text_label]
+    norm_cm_df = pd.DataFrame(norm_cm, index=text_label, columns=text_label)
+    temp = str(config.resume).split('\\')[-3:-1]
+    log_saved_path = os.path.join(config['trainer']['save_dir'], 'log', temp[0], temp[1])
+    norm_cm_df.to_csv(os.path.join(log_saved_path, 'test_norm_cm_df.csv'))
+
+    plt.figure()
     plt.matshow(norm_cm, cmap=plt.cm.gray)
     plt.title('norm_confusion_matrix plot')
     plt.xlabel('true label')
     plt.ylabel('predict label')
+    plt.savefig(os.path.join(log_saved_path, "norm_confusion_matrix.png"))
     plt.show()
     plt.close()
 
 
 if __name__ == '__main__':
+    # 参数输入例子：python test.py --resume .\saved\models\Mnist_LeNet\0521_135049\model_best.pth
     args = argparse.ArgumentParser(description='PyTorch Template')
     args.add_argument('-c', '--config', default=None, type=str,
                       help='config file path (default: None)')
