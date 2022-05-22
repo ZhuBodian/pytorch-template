@@ -110,7 +110,7 @@ class BaseMyDataset(Dataset):
                 data[self.samples[1].indices[idx]] = image
 
                 if (train_size + idx + 1) % 100 == 0:
-                    print(f'There are{train_val_size} images. Processing image {train_size + idx + 1}')
+                    print(f'There are {train_val_size} images. Processing image {train_size + idx + 1}')
 
         else:
             data = torch.empty((len(csv_image_name_list), 3, 224, 224))
