@@ -1,4 +1,8 @@
 import argparse
+import os.path
+import pandas as pd
+import utils
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -7,26 +11,46 @@ import data_loader.data_loaders as module_data
 import model.loss as module_loss
 import model.metric as module_metric
 import model.model as module_arch
+import utils
 from parse_config import ConfigParser
 from sklearn.metrics import confusion_matrix
 import pathlib
-import utils
-import os
-import pandas as pd
+from utils import global_var
+from utils import send_email
+from PIL import Image
+
+
+def get_batch_data(data, dataset):
+    idxs = list(data.numpy())
+    batch_names_list = [dataset.data_path[idx] for idx in idxs]
+    data = torch.empty((len(idxs), 3, 224, 224))
+
+    for idx, image_name in enumerate(batch_names_list):
+        # 读出来的图像是RGBA四通道的，A通道为透明通道，该通道值对深度学习模型训练来说暂时用不到，因此使用convert(‘RGB’)进行通道转换
+        image = Image.open(image_name).convert('RGB')
+        temp = dataset.transform['test'](image)  # .unsqueeze(0)增加维度（0表示，在第一个位置增加维度）
+        data[idx] = temp
+
+    return data
 
 
 def main(config):
+    global_var._init()
+    global_var.set_value('email_log', send_email.Mylog(header='pytorch_template', subject='测试log'))
+
     logger = config.get_logger('test')
     root = config['data_loader']['args']['data_dir']
 
     # setup data_loader instances
+    load_all_images_to_memories = True
     data_loader = getattr(module_data, config['data_loader']['type'])(
         config['data_loader']['args']['data_dir'],
         batch_size=512,
         shuffle=False,
         validation_split=0.0,
         training=False,
-        num_workers=2
+        num_workers=2,
+        load_all_images_to_memories=load_all_images_to_memories
     )
 
     # build model architecture
@@ -40,9 +64,9 @@ def main(config):
     # autodl训练，另一台机器验证，需要更改以下路径，参考https://stackoverflow.com/questions/57286486/i-cant-load-my-model-because-i-cant-put-a-posixpath
     temp = pathlib.PosixPath
     pathlib.PosixPath = pathlib.WindowsPath
-    map_location = 'cuda:0' if torch.cuda.is_available() else 'cpu'  # 在有gpu的机子训练，无gpu的机子测试，不带这个可能出错
 
     logger.info('Loading checkpoint: {} ...'.format(config.resume))
+    map_location = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     checkpoint = torch.load(config.resume, map_location=map_location)
     state_dict = checkpoint['state_dict']
     if config['n_gpu'] > 1:
@@ -62,6 +86,8 @@ def main(config):
 
     with torch.no_grad():
         for i, (data, target) in enumerate(tqdm(data_loader)):
+            if not load_all_images_to_memories:  #
+                data = get_batch_data(data, data_loader.dataset)
             data, target = data.to(device), target.to(device)
             output = model(data)
 
@@ -86,6 +112,7 @@ def main(config):
     })
     logger.info(log)
 
+    # 画出改进的混淆矩阵图
     cm = confusion_matrix(all_target, all_predict)
 
     row_sums = cm.sum(axis=1, keepdims=True)
@@ -93,12 +120,10 @@ def main(config):
     np.fill_diagonal(norm_cm, 0)  # 用0填充对角线，只保留错误
 
     # 保存混淆矩阵
-    json_path = os.path.join(root, 'num2text_label.json')
-    if os.path.exists(json_path):
-        num2text_label = utils.read_json(json_path)
-    else:
-        print(f'file {json_path} not exist, test_norm_cm_df.csv will use num label')
-        num2text_label = dict([(i, i) for i in range(len(row_sums))])
+    if os.path.exists(os.path.join(root, 'num2text_label.json')):
+        num2text_label = utils.read_json(os.path.join(root, 'num2text_label.json'))
+    else:  # 没有文字标签，那么还是用数字标签
+        num2text_label = [i for i in range(len(cm))]
     text_label = [num2text_label[key] for key in num2text_label]
     norm_cm_df = pd.DataFrame(norm_cm, index=text_label, columns=text_label)
     temp = str(config.resume).split('\\')[-3:-1]
@@ -114,9 +139,10 @@ def main(config):
     plt.show()
     plt.close()
 
+    global_var.get_value('email_log').send_mail()
+
 
 if __name__ == '__main__':
-    # 参数输入例子：python test.py --resume .\saved\models\Mnist_LeNet\0521_135049\model_best.pth
     args = argparse.ArgumentParser(description='PyTorch Template')
     args.add_argument('-c', '--config', default=None, type=str,
                       help='config file path (default: None)')
