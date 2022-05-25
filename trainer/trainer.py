@@ -5,6 +5,7 @@ from base import BaseTrainer
 from utils import inf_loop, MetricTracker
 from utils import global_var
 from PIL import Image
+import utils
 
 
 class Trainer(BaseTrainer):
@@ -43,22 +44,29 @@ class Trainer(BaseTrainer):
         self.model.train()  # 调用的是nn.model.train()设置为训练模式
         self.train_metrics.reset()  # 运行本次epoch之前，先把跟踪日志清0重置
 
+        timer1 = utils.MyTimer('Epoch总运行时长')
         print(f'EPOCH{epoch}'.center(100, '*'))
         for batch_idx, (data, target) in enumerate(self.data_loader):
             # self.print_current_batch_data_idx(batch_idx, data)
             print(f'BATCH{batch_idx+1}'.center(50, '*'))
+            timer2 = utils.MyTimer('Batch总运行时长')
 
+            timer3 = utils.MyTimer('导入数据时长')
             if not self.data_loader.dataset.load_all_images_to_memories:  #
                 data = self.get_batch_data(data, True)
+            timer3.stop()
 
             data, target = data.to(self.device), target.to(self.device)
 
+            timer4 = utils.MyTimer('GPU计算时长')
             self.optimizer.zero_grad()
             output = self.model(data)
             loss = self.criterion(output, target)
             loss.backward()
             self.optimizer.step()
+            timer4.stop()
 
+            timer5 = utils.MyTimer('日志更新时长')
             # 传入当前运行属于第几个step（第几个batch）
             # 当前的epoch次序*单个epoch的总step数+当前epoch的step次序
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
@@ -73,14 +81,24 @@ class Trainer(BaseTrainer):
 
             if batch_idx == self.len_epoch:
                 break
+
+            timer5.stop()
+            timer2.stop()
         log = self.train_metrics.result()
 
+        timer6 = utils.MyTimer('验证集时长')
         if self.do_validation:
             val_log = self._valid_epoch(epoch)
             log.update(**{'val_' + k: v for k, v in val_log.items()})
+        timer6.stop()
 
+        timer7 = utils.MyTimer('学习率更新时长')
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
+        timer7.stop()
+
+        timer1.stop()
+
         return log
 
     def _valid_epoch(self, epoch):
@@ -135,7 +153,6 @@ class Trainer(BaseTrainer):
             image = Image.open(image_name).convert('RGB')
             temp = self.data_loader.dataset.transform[trsfm_type](image)  # .unsqueeze(0)增加维度（0表示，在第一个位置增加维度）
             data[idx] = temp
-
         return data
 
     def print_current_batch_data_idx(self, batch_idx, data):

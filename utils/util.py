@@ -99,10 +99,10 @@ class MetricTracker:
 
 class MyTimer:
     def __init__(self, timer_reason):
-        self.start_timer = time.time()
-        self.stop_timer = time.time()
-        self.timer_reason = timer_reason
+        self._start_timer = time.time()
+        self._stop_timer = time.time()
+        self._timer_reason = timer_reason
 
     def stop(self):
-        self.stop_timer = time.time()
-        print(f'"{self.timer_reason}" cost time: {self.stop_timer - self.start_timer}s')
+        self._stop_timer = time.time()
+        print(f'"{self._timer_reason}" cost time: {self._stop_timer - self._start_timer}s')

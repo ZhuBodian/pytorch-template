@@ -13,10 +13,10 @@
             "data_dir": "../data/tinyImageNet/",
             "batch_size": 128,
             "shuffle": true,
-            "validation_split": 0.1,
+            "validation_split": 0.25,
             "num_workers": 2,
             "assign_val_sample": true,
-            "load_all_images_to_memories": true
+            "load_all_images_to_memories": false
         }
     },
     "optimizer": {

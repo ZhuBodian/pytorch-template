@@ -89,24 +89,8 @@ class BaseMyDataset(Dataset):
 
             global_var.get_value('email_log').print_add(f'Mode: {csv_prefix};')
             #global_var.get_value('email_log').print_add(f'Train dataset size: {len(csv_image_label_list)}(original: {train_size}; additional: {len(csv_image_label_list)*nums-train_size});')
-            global_var.get_value('email_log').print_add(f'Val dataset size: {len(csv_valid_image_name_list)}')
 
             data = torch.empty((train_val_size, 3, 224, 224))
-
-            # print('!'*100)
-            # image_list = []
-            # for idx, image_name in enumerate(csv_train_image_name_list):
-            #     image_path = os.path.join(os.getcwd(), image_dir, image_name)
-            #     # 读出来的图像是RGBA四通道的，A通道为透明通道，该通道值对深度学习模型训练来说暂时用不到，因此使用convert(‘RGB’)进行通道转换
-            #     image = Image.open(image_path).convert('RGB')
-            #     image_list.append(image)
-            #
-            #     if (idx + 1) % 100 == 0:
-            #         print(f'There are {train_size} original train images. Processing image {idx + 1}')
-            # utils.save_as_pickle(os.path.join(path, 'image_list.pickle'), image_list)
-            # print('!' * 100)
-
-
 
             # 处理训练集
             print('Process original train set'.center(100, '*'))
