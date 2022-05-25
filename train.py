@@ -1,5 +1,7 @@
 import argparse
 import collections
+import os
+
 import torch
 import numpy as np
 import data_loader.data_loaders as module_data
@@ -62,6 +64,7 @@ def main(config):
 
     trainer.train()
     global_var.get_value('email_log').send_mail()
+    # os.system('shutdown')
 
 
 if __name__ == '__main__':

@@ -1,23 +1,22 @@
 {
-    "name": "Mnist_LeNet",
+    "name": "AlexNet",
     "n_gpu": 1,
 
     "arch": {
-        "type": "MnistModel",
+        "type": "AlexModel",
         "args": {},
-        "pretrain_weights_name": null
+	    "pretrain_weights_name": null
     },
     "data_loader": {
-        "type": "MnistDataLoader",
+        "type": "TinyImageNetDataloader",
         "args":{
-            "data_dir": "data/",
+            "data_dir": "../autodl-tmp/data/tinyImageNetAugment/",
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.1,
             "num_workers": 2,
-            "assign_val_sample": false,
-            "pics_no_less_than": 0,
-            "augment_pics": 1
+            "assign_val_sample": true,
+            "load_all_images_to_memories": true
         }
     },
     "optimizer": {
@@ -28,9 +27,9 @@
             "amsgrad": true
         }
     },
-    "loss": "nll_loss",
+    "loss": "cross_entropyLoss",
     "metrics": [
-        "accuracy", "top_k_acc"
+        "accuracy"
     ],
     "lr_scheduler": {
         "type": "StepLR",
@@ -42,7 +41,7 @@
     "trainer": {
         "epochs": 100,
 
-        "save_dir": "saved/",
+        "save_dir": "../autodl-tmp/saved/",
         "save_period": null,
         "verbosity": 2,
         

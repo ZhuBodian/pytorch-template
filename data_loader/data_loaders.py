@@ -25,10 +25,10 @@ class TinyImageNetDataloader(BaseDataLoader):
     """
 
     def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, num_workers=1, training=True,
-                 assign_val_sample=False, augment_pics=0, load_all_images_to_memories=True):
+                 assign_val_sample=False, load_all_images_to_memories=True):
         trsfm = {
             "train": transforms.Compose([transforms.Resize([224, 224]),
-                                         transforms.RandAugment(),
+                                         # transforms.RandAugment(),
                                          transforms.ToTensor(),
                                          transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])]),
             "val": transforms.Compose([transforms.Resize([224, 224]),
@@ -55,10 +55,17 @@ class TinyImageNetDataloader(BaseDataLoader):
         
         （一个128*3*224*224的batch，从读取图片到导入gpu计算结束，要2s（但是直接从内存读取到导入gpu计算结束只用0.4s）
             2*10000/128=158，0.4*10000/128=31，还是差很多的）
+            
+        经过试验后发现，不管load_all_images_to_memories取值是true还是false，每个batch读取的图片顺序并不发生改变，但是如果transform添加
+        transforms.RandAugment()方法后，epoch的loss会发生改变（可能是因为虽然train_epoch中的训练顺序不变，但是
+        load_all_images_to_memories为true时，是顺序读取图片进行transform，之后再shuffle入batch；
+        load_all_images_to_memories为false时，先shuffle入batch，再transform；
+        虽然最终shuffle入batch中的顺序一样，但是实际上每个图片的transom顺序不一样，虽然固定了随机数种子，但是仅仅保证了不同次训练的同
+        次transforms.RandAugment()的方法一样（即不同次训练的transform一样，但是没transform到同一张图片上））
+        总之想要load_all_images_to_memories为true或者false均有同一输出，那就不要用transforms.RandAugment()
         """
 
         self.dataset = base_my_dataset.BaseMyDataset(path=self.data_dir, train=training, transform=trsfm,
-                                                     split=validation_split,
-                                                     nums=augment_pics, flag=load_all_images_to_memories)
+                                                     split=validation_split, flag=load_all_images_to_memories)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers,
                          assigned_val=assign_val_sample, samplers=self.dataset.samples)

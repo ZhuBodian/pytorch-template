@@ -6,10 +6,12 @@ from utils import inf_loop, MetricTracker
 from utils import global_var
 from PIL import Image
 
+
 class Trainer(BaseTrainer):
     """
     Trainer class
     """
+
     def __init__(self, model, criterion, metric_ftns, optimizer, config, device,
                  data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
         super().__init__(model, criterion, metric_ftns, optimizer, config)
@@ -26,7 +28,7 @@ class Trainer(BaseTrainer):
         self.valid_data_loader = valid_data_loader
         self.do_validation = self.valid_data_loader is not None
         self.lr_scheduler = lr_scheduler
-        self.log_step = int(len(data_loader)/6 + 1)  # 用来控制多少步显示一次输出,int(np.sqrt(data_loader.batch_size))
+        self.log_step = int(len(data_loader) / 6 + 1)  # 用来控制多少步显示一次输出,int(np.sqrt(data_loader.batch_size))
 
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
@@ -40,7 +42,12 @@ class Trainer(BaseTrainer):
         """
         self.model.train()  # 调用的是nn.model.train()设置为训练模式
         self.train_metrics.reset()  # 运行本次epoch之前，先把跟踪日志清0重置
+
+        print(f'EPOCH{epoch}'.center(100, '*'))
         for batch_idx, (data, target) in enumerate(self.data_loader):
+            # self.print_current_batch_data_idx(batch_idx, data)
+            print(f'BATCH{batch_idx+1}'.center(50, '*'))
+
             if not self.data_loader.dataset.load_all_images_to_memories:  #
                 data = self.get_batch_data(data, True)
 
@@ -70,7 +77,7 @@ class Trainer(BaseTrainer):
 
         if self.do_validation:
             val_log = self._valid_epoch(epoch)
-            log.update(**{'val_'+k : v for k, v in val_log.items()})
+            log.update(**{'val_' + k: v for k, v in val_log.items()})
 
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
@@ -130,3 +137,18 @@ class Trainer(BaseTrainer):
             data[idx] = temp
 
         return data
+
+    def print_current_batch_data_idx(self, batch_idx, data):
+        print(f'BATCH{batch_idx + 1}'.center(10, '*'))
+        if not self.data_loader.dataset.load_all_images_to_memories:
+            print(data)
+        else:
+            np_all_data = self.data_loader.dataset.data.numpy()
+            np_batch_data = data.numpy()
+            idx_list = []
+            for i in range(len(data)):
+                idx = np.where((np_all_data == np_batch_data[i]).all(axis=(1, 2, 3)) == True)[0]
+                if len(idx) > 1:
+                    a = 1
+                idx_list.append(idx[0])
+            print(np.array(idx_list))
