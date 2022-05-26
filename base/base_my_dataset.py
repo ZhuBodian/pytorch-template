@@ -24,7 +24,7 @@ root/num2text_label.json（（数字类别，文字类别）的映射）
 
 
 class BaseMyDataset(Dataset):
-    def __init__(self, path, train, transform, split, flag):
+    def __init__(self, path, train, transform, split, load_all, save_as_pt):
         super().__init__()
 
         image_dir = os.path.join(path, "images")
@@ -34,33 +34,31 @@ class BaseMyDataset(Dataset):
         self.image_folder = image_dir
         self.transform = transform
         self.root = path
-        self.load_all_images_to_memories = flag
+        self.load_all_images_to_memories = load_all
         self.data_path = None
 
         csv_prefix = 'train' if train else 'test'
-        if flag:  # 一次性将所有图片导入内存
+        if load_all:  # 一次性将所有图片导入内存
             global_var.get_value('email_log').print_add('Running by storing all image tensor to memory'.center(100, '*'))
 
-            first_run = not os.path.exists(os.path.join(os.path.join(path, csv_prefix + '_data.pickle')))
+            if save_as_pt:
+                first_run = not os.path.exists(os.path.join(os.path.join(path, csv_prefix + '_data.pt')))
+                if first_run:  # 第一次运行
+                    self.run_all_image(train, path, split, image_dir, transform, csv_prefix)
 
-            if first_run:  # 第一次运行
-                self.run_all_image(train, path, split, image_dir, transform, csv_prefix)
+                    torch.save(self.data, os.path.join(path, csv_prefix + '_data.pt'))
+                    torch.save(self.targets, os.path.join(path, csv_prefix + '_targets.pt'))
+                    torch.save(self.samples, os.path.join(path, csv_prefix + '_samples.pt'))
 
-                utils.save_as_pickle(os.path.join(path, csv_prefix + '_data.pickle'), self.data)
-                utils.save_as_pickle(os.path.join(path, csv_prefix + '_targets.pickle'), self.targets)
-                utils.save_as_pickle(os.path.join(path, csv_prefix + '_samples.pickle'), self.samples)
+                    global_var.get_value('email_log').print_add('Saving data to pt......'.center(100, '*'))
+                else:
+                    self.data = torch.load(os.path.join(path, csv_prefix + '_data.pt'))
+                    self.targets = torch.load(os.path.join(path, csv_prefix + '_targets.pt'))
+                    self.samples = torch.load(os.path.join(path, csv_prefix + '_samples.pt'))
 
-                global_var.get_value('email_log').print_add('Saving data to pickle......'.center(100, '*'))
-            else:
-                self.data = utils.load_from_pickle(os.path.join(path, csv_prefix + '_data.pickle'))
-                self.targets = utils.load_from_pickle(os.path.join(path, csv_prefix + '_targets.pickle'))
-                self.samples = utils.load_from_pickle(os.path.join(path, csv_prefix + '_samples.pickle'))
-
-                global_var.get_value('email_log').print_add(f'Get tensor from pickle; Train size + Val size: {len(self.data)}'.center(100, '*'))
+                    global_var.get_value('email_log').print_add(f'Get tensor from pt; Train size + Val size: {len(self.data)}'.center(100, '*'))
         else:
-
             global_var.get_value('email_log').print_add('Running by storing batch image tensor to memory'.center(100, '*'))
-
             self.run_batch_image(train, path, split, image_dir, transform, csv_prefix)
 
 
@@ -114,7 +112,7 @@ class BaseMyDataset(Dataset):
 
                 data[self.samples[1].indices[idx]] = image
 
-                if (train_size + idx + 1) % 100 == 0:
+                if (idx + 1) % 100 == 0:
                     print(f'There are {len(csv_valid_image_name_list)} val images. Processing image {idx + 1}')
 
         else:
@@ -130,30 +128,6 @@ class BaseMyDataset(Dataset):
                 data[idx] = image
 
         self.data = data
-
-        """
-        #之后的任务：探究不同数据增强对图片的影响，对训练结果的影响，并对pytorch-template进行修改，添加事先分隔号训练集、验证集的功能
-        data_list = []
-        for idx, image_name in enumerate(csv_image_name_list):
-            image_path = os.path.join(os.getcwd(), image_dir, image_name)
-            # 读出来的图像是RGBA四通道的，A通道为透明通道，该通道值对深度学习模型训练来说暂时用不到，因此使用convert(‘RGB’)进行通道转换
-            image = Image.open(image_path).convert('RGB')
-            image = transform['train'](image)  # .unsqueeze(0)增加维度（0表示，在第一个位置增加维度）
-
-            data_list.append(image)
-
-            ############################
-            # temp_trsfm = transforms.Compose([transforms.Resize(224)
-            #                                  transforms.RandomHorizontalFlip(),
-            #                                  transforms.ToTensor()])
-            # image_path = os.path.join(os.getcwd(), image_dir, image_name)
-            # image = Image.open(image_path).convert('RGB')
-            # image = temp_trsfm(image)
-            # transforms.ToPILImage()(image).show()
-
-        self.data = torch.stack(data_list)
-        del data_list
-        """
 
         num_label2text_label = dict([(idx, text) for idx, text in enumerate(csv_image_label_list)])
         # util.write_json(num_label2text_label, os.path.join(path, 'num_label2text_label.json'))

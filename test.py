@@ -18,6 +18,7 @@ import pathlib
 from utils import global_var
 from utils import send_email
 from PIL import Image
+import torchvision
 
 
 def get_batch_data(data, dataset):
@@ -42,7 +43,7 @@ def main(config):
     root = config['data_loader']['args']['data_dir']
 
     # setup data_loader instances
-    load_all_images_to_memories = True
+    load_all_images_to_memories = False
     data_loader = getattr(module_data, config['data_loader']['type'])(
         config['data_loader']['args']['data_dir'],
         batch_size=512,
@@ -67,7 +68,7 @@ def main(config):
 
     logger.info('Loading checkpoint: {} ...'.format(config.resume))
     map_location = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    checkpoint = torch.load(config.resume, map_location=map_location)
+    checkpoint = torch.load(config.resume, map_location=map_location)  # checkpoint = torch.load(config.resume, map_location='cpu')
     state_dict = checkpoint['state_dict']
     if config['n_gpu'] > 1:
         model = torch.nn.DataParallel(model)
@@ -81,8 +82,8 @@ def main(config):
     total_loss = 0.0
     total_metrics = torch.zeros(len(metric_fns))
 
-    all_target = []
-    all_predict = []
+    all_target = np.empty(0)
+    all_predict = np.empty(0)
 
     with torch.no_grad():
         for i, (data, target) in enumerate(tqdm(data_loader)):
@@ -91,8 +92,9 @@ def main(config):
             data, target = data.to(device), target.to(device)
             output = model(data)
 
-            all_target += list(target.numpy())
-            all_predict += list(torch.argmax(output, dim=1).numpy())
+            all_target = np.append(all_target, target.cpu().numpy())
+            pred = torch.argmax(output, dim=1)
+            all_predict = np.append(all_predict, pred.cpu().numpy())
 
             #
             # save sample images, or do something with output here
@@ -114,9 +116,11 @@ def main(config):
 
     # 画出改进的混淆矩阵图
     cm = confusion_matrix(all_target, all_predict)
+    cm = cm.T  # 转置后，# （i，j）表示真实为j决策为i的数目，每列的和为类别总数目
+    print(cm)
 
-    row_sums = cm.sum(axis=1, keepdims=True)
-    norm_cm = cm / row_sums  # 为防止类别图片数量不均衡，计算错误率
+    col_sums = cm.sum(axis=0, keepdims=True)
+    norm_cm = cm / col_sums  # 为防止类别图片数量不均衡，计算错误率
     np.fill_diagonal(norm_cm, 0)  # 用0填充对角线，只保留错误
 
     # 保存混淆矩阵

@@ -10,13 +10,14 @@
     "data_loader": {
         "type": "TinyImageNetDataloader",
         "args":{
-            "data_dir": "../autodl-tmp/data/tinyImageNet/",
+            "data_dir": "../autodl-tmp/data/tinyImageNetAugment",
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.25,
             "num_workers": 7,
             "assign_val_sample": true,
-            "load_all_images_to_memories": true
+            "load_all_images_to_memories": true,
+            "save_as_pt": true
         }
     },
     "optimizer": {
