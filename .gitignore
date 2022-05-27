@@ -106,6 +106,7 @@ input/
 saved/
 datasets/
 utils/send_email.py
+utils/cal_dataset_norm_par.py
 
 # editor, os cache directory
 .vscode/

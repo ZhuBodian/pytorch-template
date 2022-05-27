@@ -1,6 +1,9 @@
+import os.path
+from utils import global_var
 from torchvision import datasets, transforms
 from base import BaseDataLoader
 from base import base_my_dataset
+import utils
 
 
 class MnistDataLoader(BaseDataLoader):
@@ -28,14 +31,24 @@ class TinyImageNetDataloader(BaseDataLoader):
                  assign_val_sample=False, load_all_images_to_memories=True, save_as_pt=True):
         # "train"归一化是为了加快收敛速度，但要注意，如果"train"归一化了，但是“test”没归一化，会严重影响测试集准确率
         # （可能是因为归一化会造成色彩失真，从而导致特征发生改变？）
+        dataset_att = utils.read_json(os.path.join(data_dir, 'dataset_att.json'))
+        if 'norm_par' in dataset_att.keys():
+            mean = dataset_att['norm_par']['mean']
+            std = dataset_att['norm_par']['std']
+            global_var.get_value('email_log').print_add('Use dataset norm par')
+        else:
+            mean = [0.485, 0.456, 0.406]
+            std = [0.229, 0.224, 0.225]
+            global_var.get_value('email_log').print_add('Use ImageNet norm par')
+
         trsfm = {
             "train": transforms.Compose([transforms.Resize([224, 224]),
                                          # transforms.RandAugment(),  # 这一步在生成数据集那里完成
                                          transforms.ToTensor(),
-                                         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])]),
+                                         transforms.Normalize(mean, std)]),
             "val": transforms.Compose([transforms.Resize([224, 224]),
                                        transforms.ToTensor(),
-                                       transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])]),
+                                       transforms.Normalize(mean, std)]),
             "test": transforms.Compose([transforms.Resize([224, 224]),
                                         transforms.ToTensor(),
                                         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
