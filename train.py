@@ -64,7 +64,7 @@ def main(config):
 
     trainer.train()
     global_var.get_value('email_log').send_mail()
-    # os.system('shutdown')
+    os.system('shutdown')
 
 
 if __name__ == '__main__':
