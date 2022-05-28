@@ -107,6 +107,7 @@ saved/
 datasets/
 utils/send_email.py
 utils/cal_dataset_norm_par.py
+sanity_check/
 
 # editor, os cache directory
 .vscode/

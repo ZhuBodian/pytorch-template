@@ -10,7 +10,7 @@
     "data_loader": {
         "type": "TinyImageNetDataloader",
         "args":{
-            "data_dir": "../data/tinyImageNet/",
+            "data_dir": "E:/AAAMyCodes/myjupyter/classicStructure/data/tinyImageNet",
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.25,
@@ -41,7 +41,7 @@
     "trainer": {
         "epochs": 100,
 
-        "save_dir": "saved/",
+        "save_dir": "E:/AAAMyCodes/myjupyter/classicStructure/pytorch-template/saved",
         "save_period": null,
         "verbosity": 2,
         
@@ -50,5 +50,10 @@
 
         "tensorboard": true,
         "save_non_optimum": false
+
+    },
+    "ray_tune": {
+        "tune": false,
+        "args": {},
     }
 }

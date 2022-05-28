@@ -1,7 +1,6 @@
 import argparse
 import collections
 import os
-
 import torch
 import numpy as np
 import data_loader.data_loaders as module_data
@@ -24,7 +23,13 @@ np.random.seed(SEED)
 
 def main(config):
     global_var._init()
-    global_var.set_value('email_log', send_email.Mylog(header='pytorch_template', subject='测试log'))
+    if not config['ray_tune']['tune']:  # 不进行超参数搜索
+        global_var.set_value('email_log', send_email.Mylog(header='pytorch_template', subject='测试log'))
+    else:
+        subject = str()
+        for k, v in config['ray_tune']['args'].items():
+            subject = subject + k + ':' + str(v) + ';  '
+        global_var.set_value('email_log', send_email.Mylog(header='pytorch_template', subject=subject))
 
     # config为parse_config中的ConfigParser类，且注意config.init_obj第二个变量均为某个模块，且变量在__name__ == '__main__'中的special variables中
     # 第一个变量为str类型，详细查看config.json文件
@@ -63,8 +68,10 @@ def main(config):
                       lr_scheduler=lr_scheduler)
 
     trainer.train()
-    global_var.get_value('email_log').send_mail()
-    os.system('shutdown')
+
+    if not config['ray_tune']['tune']:
+        global_var.get_value('email_log').send_mail()
+        # os.system('shutdown')
 
 
 if __name__ == '__main__':

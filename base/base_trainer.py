@@ -3,6 +3,8 @@ from abc import abstractmethod
 from numpy import inf
 from logger import TensorboardWriter
 from utils import global_var
+from ray import tune
+import os
 
 class BaseTrainer:
     def __init__(self, model, criterion, metric_ftns, optimizer, config):
@@ -120,6 +122,10 @@ class BaseTrainer:
                 if epoch % self.save_period == 0:
                     self._save_non_optimum_opcheckpoint(epoch)
 
+            if self.config['ray_tune']['tune']:
+                tune.report(loss=log['val_loss'], accuracy=log['accuracy'])
+
+
     def _save_non_optimum_opcheckpoint(self, epoch):
         """
         Saving checkpoints
@@ -156,6 +162,7 @@ class BaseTrainer:
         torch.save(state, best_path)
         self.logger.info("Saving current best: model_best.pth ...")
         global_var.get_value('email_log').add_log("Saving current best: model_best.pth ...")
+
 
     def _resume_checkpoint(self, resume_path):
         """

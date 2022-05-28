@@ -10,7 +10,7 @@
     "data_loader": {
         "type": "TinyImageNetDataloader",
         "args":{
-            "data_dir": "../autodl-tmp/data/tinyImageNet",
+            "data_dir": "/root/autodl-tmp/data/tinyImageNet",
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.25,
@@ -42,7 +42,7 @@
     "trainer": {
         "epochs": 100,
 
-        "save_dir": "../autodl-tmp/saved/",
+        "save_dir": "/root/autodl-tmp/saved/",
         "save_period": null,
         "verbosity": 2,
         
@@ -51,5 +51,9 @@
 
         "tensorboard": true,
         "save_non_optimum": false
+    },
+    "ray_tune": {
+        "tune": false,
+        "args": {}
     }
 }
