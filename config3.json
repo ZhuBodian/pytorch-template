@@ -17,7 +17,8 @@
             "num_workers": 7,
             "assign_val_sample": true,
             "load_all_images_to_memories": true,
-            "save_as_pt": true
+            "save_as_pt": true,
+            "folds": 5
         }
     },
     "optimizer": {

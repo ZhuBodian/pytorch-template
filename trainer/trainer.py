@@ -20,11 +20,14 @@ class Trainer(BaseTrainer):
     """
 
     def __init__(self, model, criterion, metric_ftns, optimizer, config, device,
-                 data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
+                 data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None,
+                 combine_data_loaders=[None, None]):
         super().__init__(model, criterion, metric_ftns, optimizer, config)
         self.config = config
         self.device = device
         self.data_loader = data_loader
+        self.data_loaders = combine_data_loaders[0]
+        self.valid_data_loaders = combine_data_loaders[1]
         if len_epoch is None:
             # epoch-based training
             self.len_epoch = len(self.data_loader)  # 返回可迭代对象的迭代长度
@@ -40,7 +43,7 @@ class Trainer(BaseTrainer):
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
 
-    def _train_epoch(self, epoch):
+    def _train_epoch(self, epoch, fold_num):
         """
         Training logic for an epoch
 
@@ -82,8 +85,8 @@ class Trainer(BaseTrainer):
                 self.train_metrics.update(met.__name__, met(output, target))
 
             if batch_idx % self.log_step == 0:
-                self.logger.debug(f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
-                global_var.get_value('email_log').add_log(f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
+                self.logger.debug(f'Fold:{fold_num}, Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
+                global_var.get_value('email_log').add_log(f'Fold:{fold_num}, Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
                 # self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))  # 这个巨耗时间，一个batch0.05s，这个能花几十秒
 
             if batch_idx == self.len_epoch:

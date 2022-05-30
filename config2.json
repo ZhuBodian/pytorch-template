@@ -16,7 +16,9 @@
             "validation_split": 0.25,
             "num_workers": 2,
             "assign_val_sample": true,
-            "load_all_images_to_memories": false
+            "load_all_images_to_memories": true,
+            "save_as_pt": true,
+            "folds": 5
         }
     },
     "optimizer": {
@@ -54,6 +56,6 @@
     },
     "ray_tune": {
         "tune": false,
-        "args": {},
+        "args": {}
     }
 }
