@@ -23,27 +23,26 @@ class MnistDataLoader(BaseDataLoader):
 
 
 class TinyImageNetDataloader(BaseDataLoader):
-    fold_num = 0
     """
     MiniImageNet data loading demo using BaseDataLoader
     """
 
     def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, num_workers=1, training=True,
-                 assign_val_sample=False, load_all_images_to_memories=True, save_as_pt=True, folds=5,
-                 train_val_samples=None, first_data_loader=None):
+                 assign_val_sample=False, load_all_images_to_memories=True, save_as_pt=True, train_val_samples=None,
+                 fold_num=0):
         # "train"归一化是为了加快收敛速度，但要注意，如果"train"归一化了，但是“test”没归一化，会严重影响测试集准确率
         # （可能是因为归一化会造成色彩失真，从而导致特征发生改变？）
         dataset_att = utils.read_json(os.path.join(data_dir, 'dataset_att.json'))
         if 'norm_par' in dataset_att.keys():
             mean = dataset_att['norm_par']['mean']
             std = dataset_att['norm_par']['std']
-            if self.fold_num == 0:
-                global_var.get_value('email_log').print_add('Use this dataset\'s standard vector')
+            if fold_num == 0:
+                global_var.get_value('email_log').print_add('Use this dataset\'s standard vector'.center(100, '*'))
         else:
             mean = [0.485, 0.456, 0.406]
             std = [0.229, 0.224, 0.225]
-            if self.fold_num == 0:
-                global_var.get_value('email_log').print_add('Use ImageNet dataset\'s standard vector')
+            if fold_num == 0:
+                global_var.get_value('email_log').print_add('Use ImageNet dataset\'s standard vector'.center(100, '*'))
 
         # 现阶段的代码，如果用folds>1，那么train，val的transform要一样，后续才不会出现bug，否则存取pt文件会出现问题
         # （不同折的val索引不同，而trsfm['val']也不一样，所以应该存放不同的data_folds_0.pt，data_folds_1.pt...
@@ -57,8 +56,6 @@ class TinyImageNetDataloader(BaseDataLoader):
             "val": my_trsfm,
             "test": my_trsfm
         }
-        if folds > 1:
-            assert trsfm['train'] == trsfm['val'], '现阶段代码仅支持k折交叉验证时，trsfm[train] = trsfm[val]'
 
         self.data_dir = data_dir
 
@@ -93,9 +90,7 @@ class TinyImageNetDataloader(BaseDataLoader):
 
         self.dataset = base_my_dataset.BaseMyDataset(path=self.data_dir, train=training, transform=trsfm,
                                                      split=validation_split, load_all=load_all_images_to_memories,
-                                                     save_as_pt=save_as_pt, folds=folds,
-                                                     train_val_samples=train_val_samples,
-                                                     fold_num=self.fold_num,
-                                                     first_data_loader=first_data_loader)
+                                                     save_as_pt=save_as_pt, train_val_samples=train_val_samples,
+                                                     fold_num=fold_num)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers,
                          assigned_val=assign_val_sample, samplers=self.dataset.samples)

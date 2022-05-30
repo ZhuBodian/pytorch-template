@@ -10,6 +10,19 @@ from utils import prepare_device
 
 
 class BaseTrainer:
+    fold_best = {
+        "loss": [],
+        "accuracy": [],
+        "val_loss": [],
+        "val_accuracy": []
+    }
+    fold_average = {
+        "loss": None,
+        "accuracy": None,
+        "val_loss": None,
+        "val_accuracy": None
+    }
+
     def __init__(self, model, criterion, metric_ftns, optimizer, config):
         """
         @param model: 实例化的torch模型，模型的类写在model.model文件下
@@ -19,18 +32,6 @@ class BaseTrainer:
         @param config: 实例化的parse_config.ConfugParser类
         """
         self.best = {
-            "loss": None,
-            "accuracy": None,
-            "val_loss": None,
-            "val_accuracy": None
-        }
-        self.fold_best = {
-            "loss": [],
-            "accuracy": [],
-            "val_loss": [],
-            "val_accuracy": []
-        }
-        self.fold_average = {
             "loss": None,
             "accuracy": None,
             "val_loss": None,
@@ -95,120 +96,64 @@ class BaseTrainer:
         Full training logic
         写了整个训练过程中的逻辑，其实就是重复运行单步训练逻辑，单步训练逻辑写在trainer.trainer.Trainer类中的方法_train_epoch中
         """
-        def single_fold_train(fold_num):
-            not_improved_count = 0
-            for epoch in range(self.start_epoch, self.epochs + 1):
-                result = self._train_epoch(epoch, fold_num)  # 运行单步
+        not_improved_count = 0
+        for epoch in range(self.start_epoch, self.epochs + 1):
+            result = self._train_epoch(epoch, self.fold_num)  # 运行单步
 
-                # save logged informations into log dict
+            # save logged informations into log dict
 
-                log = {'fold': fold_num,
-                       'epoch': epoch}
-                log.update(result)
+            log = {'fold': self.fold_num,
+                   'epoch': epoch}
+            log.update(result)
 
-                # print logged informations to the screen
-                for key, value in log.items():
-                    self.logger.info('    {:15s}: {}'.format(str(key), value))
-                    global_var.get_value('email_log').add_log('    {:15s}: {}'.format(str(key), value))
+            # print logged informations to the screen
+            for key, value in log.items():
+                self.logger.info('    {:15s}: {}'.format(str(key), value))
+                global_var.get_value('email_log').add_log('    {:15s}: {}'.format(str(key), value))
 
-                # evaluate model performance according to configured metric, save best checkpoint as model_best
-                best = False
-                if self.mnt_mode != 'off':
-                    try:
-                        # check whether model performance improved or not, according to specified metric(mnt_metric)
-                        improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
-                                   (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
-                    except KeyError:
-                        self.logger.warning(
-                            f"Warning: Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
-                        global_var.get_value('email_log').add_log(
-                            f"Warning: Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
-                        self.mnt_mode = 'off'
-                        improved = False
+            # evaluate model performance according to configured metric, save best checkpoint as model_best
+            best = False
+            if self.mnt_mode != 'off':
+                try:
+                    # check whether model performance improved or not, according to specified metric(mnt_metric)
+                    improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
+                               (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
+                except KeyError:
+                    self.logger.warning(
+                        f"Warning: Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
+                    global_var.get_value('email_log').add_log(
+                        f"Warning: Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
+                    self.mnt_mode = 'off'
+                    improved = False
 
-                    if improved:
-                        self.mnt_best = log[self.mnt_metric]
-                        not_improved_count = 0
-                        best = True
-                    else:
-                        not_improved_count += 1
+                if improved:
+                    self.mnt_best = log[self.mnt_metric]
+                    not_improved_count = 0
+                    best = True
+                else:
+                    not_improved_count += 1
 
-                    if not_improved_count > self.early_stop:
-                        self.logger.info(
-                            f"Validation performance didn\'t improve for {self.early_stop} epochs. Training stops.")
-                        global_var.get_value('email_log').add_log(
-                            f"Validation performance didn\'t improve for {self.early_stop} epochs. Training stops.")
+                if not_improved_count > self.early_stop:
+                    self.logger.info(
+                        f"Validation performance didn\'t improve for {self.early_stop} epochs. Training stops.")
+                    global_var.get_value('email_log').add_log(
+                        f"Validation performance didn\'t improve for {self.early_stop} epochs. Training stops.")
 
-                        global_var.get_value('email_log').print_add(f'fold{fold_num}, best Model:')
-                        for k, v in self.best.items():
-                            self.fold_best[k].append(v)
-                            global_var.get_value('email_log').print_add(f'{k}: {v}')
-                        break
+                    global_var.get_value('email_log').print_add(f'fold{self.fold_num}, best Model:')
+                    for k, v in self.best.items():
+                        BaseTrainer.fold_best[k].append(v)
+                        global_var.get_value('email_log').print_add(f'{k}: {v}')
+                    break
 
-                if best:
-                    self._save_best_checkpoint(epoch, fold_num)
-                    for k, v in result.items():
-                        self.best[k] = v
+            if best:
+                self._save_best_checkpoint(epoch, self.fold_num)
+                for k, v in result.items():
+                    self.best[k] = v
 
-                if self.save_non_optimum:
-                    if epoch % self.save_period == 0:
-                        self._save_non_optimum_opcheckpoint(epoch, fold_num)
+            if self.save_non_optimum:
+                if epoch % self.save_period == 0:
+                    self._save_non_optimum_opcheckpoint(epoch, self.fold_num)
 
-        total_folds = self.config['data_loader']['args']['folds']
-
-        if total_folds == 1:
-            global_var.get_value('email_log').print_add.print('不使用k折交叉验证运行'.center(100, '*'))
-            single_fold_train(0)
-
-            if self.config['ray_tune']['tune']:
-                tune.report(loss=self.best['val_loss'], accuracy=self.best['val_accuracy'])
-
-        else:
-            global_var.get_value('email_log').print_add('使用k折交叉验证运行'.center(100, '*'))
-            for fold in range(total_folds):
-                global_var.get_value('email_log').print_add(f'Fold: {fold}'.center(50, '*'))
-                self.data_loader = self.data_loaders[fold]
-                self.valid_data_loader = self.valid_data_loaders[fold]
-                self.fold_init()
-
-                single_fold_train(fold)
-
-
-            global_var.get_value('email_log').print_add(f'After {total_folds}-fold, average metric:'.center(100, '*'))
-            for k, v in self.fold_best:
-                self.fold_average[k] = sum(v) / len(v)
-                global_var.get_value('email_log').print_add(f'{k}: v')
-
-            if self.config['ray_tune']['tune']:
-                tune.report(loss=self.fold_average['val_loss'], accuracy=self.fold_average['val_accuracy'])
-
-
-    def fold_init(self):
-        # 重新生成新的tensorboard日志文件
-        # configuration to monitor model performance and save best
-        if self.monitor == 'off':
-            self.mnt_mode = 'off'
-            self.mnt_best = 0
-        else:
-            self.mnt_mode, self.mnt_metric = self.monitor.split()
-            assert self.mnt_mode in ['min', 'max']
-
-            self.mnt_best = inf if self.mnt_mode == 'min' else -inf
-            self.early_stop = self.config['trainer'].get('early_stop', inf)
-            if self.early_stop <= 0:
-                self.early_stop = inf
-
-        self.start_epoch = 1
-        self.writer = TensorboardWriter(self.config.log_dir, self.logger, self.config['trainer']['tensorboard'])
-
-        self.best = {
-            "loss": None,
-            "accuracy": None,
-            "val_loss": None,
-            "val_accuracy": None
-        }
-
-        self.model, _ = self.init_model()
 
 
     def init_model(self):

@@ -24,8 +24,7 @@ root/num2text_label.json（（数字类别，文字类别）的映射）
 
 
 class BaseMyDataset(Dataset):
-    def __init__(self, path, train, transform, split, load_all, save_as_pt, folds, train_val_samples, fold_num,
-                 first_data_loader):
+    def __init__(self, path, train, transform, split, load_all, save_as_pt, train_val_samples, fold_num):
         super().__init__()
 
         image_dir = os.path.join(path, "images")
@@ -37,44 +36,39 @@ class BaseMyDataset(Dataset):
         self.root = path
         self.load_all_images_to_memories = load_all
         self.data_path = None
-        self.folds_samples = None if folds == 1 else [[], []]
 
         csv_prefix = 'train' if train else 'test'
 
-        if fold_num == 0:
-            if load_all:  # 一次性将所有图片导入内存
-                global_var.get_value('email_log').print_add('Running by storing all image tensor to memory'.center(100, '*'))
+        if load_all:  # 一次性将所有图片导入内存
+            if fold_num == 0:
+                global_var.get_value('email_log').print_add(
+                    'Running by storing all image tensor to memory'.center(100, '*'))
 
-                if save_as_pt:
-                    first_run = not os.path.exists(os.path.join(os.path.join(path, csv_prefix + '_data.pt')))
-                    if first_run:  # 第一次运行
-                        self.run_all_image(train, path, split, image_dir, transform, csv_prefix, folds, train_val_samples)
+            if save_as_pt:
+                first_run = not os.path.exists(os.path.join(os.path.join(path, csv_prefix + '_data.pt')))
+                if first_run:  # 第一次运行
+                    self.run_all_image(train, path, split, image_dir, transform, csv_prefix, train_val_samples)
 
-                        torch.save(self.data, os.path.join(path, csv_prefix + '_data.pt'))
-                        torch.save(self.targets, os.path.join(path, csv_prefix + '_targets.pt'))
-                        torch.save(self.samples, os.path.join(path, csv_prefix + '_samples.pt'))
+                    torch.save(self.data, os.path.join(path, csv_prefix + '_data.pt'))
+                    torch.save(self.targets, os.path.join(path, csv_prefix + '_targets.pt'))
+                    torch.save(self.samples, os.path.join(path, csv_prefix + '_samples.pt'))
+                    global_var.get_value('email_log').print_add('Saving data to pt......'.center(100, '*'))
+                else:
+                    self.data = torch.load(os.path.join(path, csv_prefix + '_data.pt'))
+                    self.targets = torch.load(os.path.join(path, csv_prefix + '_targets.pt'))
+                    self.samples = torch.load(os.path.join(path, csv_prefix + '_samples.pt'))
 
-                        global_var.get_value('email_log').print_add('Saving data to pt......'.center(100, '*'))
-                    else:
-                        self.data = torch.load(os.path.join(path, csv_prefix + '_data.pt'))
-                        self.targets = torch.load(os.path.join(path, csv_prefix + '_targets.pt'))
-                        self.samples = torch.load(os.path.join(path, csv_prefix + '_samples.pt'))
-
-                        global_var.get_value('email_log').print_add(f'Get tensor from pt; Train size + Val size: {len(self.data)}'.center(100, '*'))
-            else:
-                global_var.get_value('email_log').print_add('Running by storing batch image tensor to memory'.center(100, '*'))
-                self.run_batch_image(train, path, split, image_dir, transform, csv_prefix, folds, train_val_samples)
-
-        else:  # k折交叉验证，且非第一折(即认为不同dataloader的data与target数据是一样的，不同的只是train，val的划分方法)
-            if load_all:  # 一次性将所有图片导入内存
-                self.data = first_data_loader.dataset.data
-                self.targets = first_data_loader.dataset.targets
-                self.samples = train_val_samples
-            else:
-                self.run_batch_image(train, path, split, image_dir, transform, csv_prefix, folds, train_val_samples)
+                    if fold_num == 0:
+                        global_var.get_value('email_log').print_add(
+                            f'Get tensor from pt; Train size + Val size: {len(self.data)}'.center(100, '*'))
+        else:
+            if fold_num == 0:
+                global_var.get_value('email_log').print_add(
+                    'Running by storing batch image tensor to memory'.center(100, '*'))
+            self.run_batch_image(train, path, split, image_dir, transform, csv_prefix, train_val_samples)
 
 
-    def run_all_image(self, train, path, split, image_dir, transform, csv_prefix, folds, train_val_samples):
+    def run_all_image(self, train, path, split, image_dir, transform, csv_prefix, train_val_samples):
         # 根据布尔值train，来确定是生成训练集数据（如果是训练集，那么肯定也要生成验证集），还是测试集数据
         csv_name = csv_prefix + '.csv'
         csv_path = os.path.join(path, csv_name)
@@ -91,13 +85,13 @@ class BaseMyDataset(Dataset):
         self.targets = torch.from_numpy(np.array(csv_data['label'])).long()
 
         if train:
-            self.samples = self.cal_samples(split, self.targets, folds, train_val_samples)  # 生成验证集
+            self.samples = train_val_samples # 生成验证集
             csv_train_image_name_list = csv_data['filename'][self.samples[0].indices]
             csv_valid_image_name_list = csv_data['filename'][self.samples[1].indices]
             train_val_size = len(csv_data)
             train_size = len(csv_train_image_name_list)
 
-            global_var.get_value('email_log').print_add(f'Mode: {csv_prefix};')
+            global_var.get_value('email_log').print_add(f'Mode: {csv_prefix};'.center(100, '*'))
             #global_var.get_value('email_log').print_add(f'Train dataset size: {len(csv_image_label_list)}(original: {train_size}; additional: {len(csv_image_label_list)*nums-train_size});')
 
             data = torch.empty((train_val_size, 3, 224, 224))
@@ -142,7 +136,7 @@ class BaseMyDataset(Dataset):
         # util.write_json(num_label2text_label, os.path.join(path, 'num_label2text_label.json'))
 
 
-    def run_batch_image(self, train, path, split, image_dir, transform, csv_prefix, folds, train_val_samples):
+    def run_batch_image(self, train, path, split, image_dir, transform, csv_prefix, train_val_samples):
         # 根据布尔值train，来确定是生成训练集数据（如果是训练集，那么肯定也要生成验证集），还是测试集数据
         csv_name = csv_prefix + '.csv'
         csv_path = os.path.join(path, csv_name)
@@ -158,7 +152,7 @@ class BaseMyDataset(Dataset):
         self.targets = torch.from_numpy(np.array(csv_data['label'])).long()
 
         if train:
-            self.samples = self.cal_samples(split, self.targets, folds, train_val_samples)
+            self.samples = train_val_samples
         else:
             self.samples = None
 
@@ -168,20 +162,6 @@ class BaseMyDataset(Dataset):
 
         num_label2text_label = dict([(idx, text) for idx, text in enumerate(csv_image_label_list)])
         # util.write_json(num_label2text_label, os.path.join(path, 'num_label2text_label.json'))
-
-
-    def cal_samples(self, rate, targets, folds, train_val_samples):
-        """事先分割好训练集与验证集，方便后续不同的transform"""
-        split = StratifiedShuffleSplit(n_splits=folds, test_size=rate, random_state=42)
-        if folds == 1:
-            for train_index, valid_index in split.split(np.zeros(len(targets)), np.array(targets)):
-                train_samples = SubsetRandomSampler(train_index)
-                valid_samples = SubsetRandomSampler(valid_index)
-
-            return [train_samples, valid_samples]
-        else:
-            return [train_val_samples[0], train_val_samples[1]]
-
 
     def __len__(self):
         return len(self.targets)

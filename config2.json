@@ -17,8 +17,7 @@
             "num_workers": 2,
             "assign_val_sample": true,
             "load_all_images_to_memories": true,
-            "save_as_pt": true,
-            "folds": 5
+            "save_as_pt": true
         }
     },
     "optimizer": {
@@ -48,10 +47,12 @@
         "verbosity": 2,
         
         "monitor": "min val_loss",
-        "early_stop": 10,
+        "early_stop": 1,
 
         "tensorboard": true,
-        "save_non_optimum": false
+        "save_non_optimum": false,
+
+        "folds": 3
 
     },
     "ray_tune": {

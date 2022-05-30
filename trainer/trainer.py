@@ -20,14 +20,13 @@ class Trainer(BaseTrainer):
     """
 
     def __init__(self, model, criterion, metric_ftns, optimizer, config, device,
-                 data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None,
-                 combine_data_loaders=[None, None]):
+                 data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None, folds=5, fold_num=0):
         super().__init__(model, criterion, metric_ftns, optimizer, config)
         self.config = config
         self.device = device
         self.data_loader = data_loader
-        self.data_loaders = combine_data_loaders[0]
-        self.valid_data_loaders = combine_data_loaders[1]
+        self.folds = folds
+        self.fold_num = fold_num
         if len_epoch is None:
             # epoch-based training
             self.len_epoch = len(self.data_loader)  # 返回可迭代对象的迭代长度

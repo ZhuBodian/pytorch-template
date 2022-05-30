@@ -16,6 +16,8 @@ from utils import global_var
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data.sampler import SubsetRandomSampler
+from ray import tune
+from base.base_trainer import BaseTrainer
 
 
 # fix random seeds for reproducibility
@@ -25,77 +27,33 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
-
-def get_k_folds_data_loaders(config, folds):
+def get_split_targets():
     csv_path = os.path.join(config['data_loader']['args']['data_dir'], 'train.csv')
     csv_data = pd.read_csv(csv_path)
     targets = np.array(csv_data['label'])
 
-    data_loaders = []
-    valid_data_loaders = []
-    rate = config['data_loader']['args']['validation_split']
-
-    # 如果test_size不等于1/folds的话，那么不同folds之间，训练集的样本会有重叠
-    split = StratifiedShuffleSplit(n_splits=folds, test_size=rate, random_state=42)
-    for train_index, valid_index in split.split(np.zeros_like(targets), targets):
-        first_data_loader = None if len(data_loaders) == 0 else data_loaders[0]
-
-        train_samples = SubsetRandomSampler(train_index)
-        valid_samples = SubsetRandomSampler(valid_index)
-        data_loaders.append(config.init_obj('data_loader', module_data,
-                                            train_val_samples=[train_samples, valid_samples],
-                                            first_data_loader=first_data_loader))
-        valid_data_loaders.append(data_loaders[-1].split_validation())
-
-        module_data.TinyImageNetDataloader.fold_num += 1
-
-    return data_loaders, valid_data_loaders
+    return targets
 
 
-def init_model():
+def single_fold_model(folds, fold_num, logger, train_index, valid_index):
+    train_samples = SubsetRandomSampler(train_index)
+    valid_samples = SubsetRandomSampler(valid_index)
+
+    data_loader = config.init_obj('data_loader', module_data, train_val_samples=[train_samples, valid_samples],
+                                  fold_num=fold_num)
+    valid_data_loader = data_loader.split_validation()
+
     # build model architecture, then print to console
     model = config.init_obj('arch', module_arch)
+    if fold_num == 0:
+        logger.info(model)  # logging.info('输出信息')，而类model的输出信息为可训练参数
+        global_var.get_value('email_log').add_log(model.__str__())
 
     # prepare for (multi-device) GPU training
     device, device_ids = prepare_device(config['n_gpu'])
     model = model.to(device)
     if len(device_ids) > 1:
         model = torch.nn.DataParallel(model, device_ids=device_ids)
-
-    return model, device
-
-
-def main(config):
-    global_var._init()
-    if not config['ray_tune']['tune']:  # 不进行超参数搜索
-        global_var.set_value('email_log', send_email.Mylog(header='pytorch_template', subject='测试log'))
-    else:
-        subject = str()
-        for k, v in config['ray_tune']['args'].items():
-            subject = subject + k + ':' + str(v) + ';  '
-        global_var.set_value('email_log', send_email.Mylog(header='pytorch_template', subject=subject))
-
-    # config为parse_config中的ConfigParser类，且注意config.init_obj第二个变量均为某个模块，且变量在__name__ == '__main__'中的special variables中
-    # 第一个变量为str类型，详细查看config.json文件
-    logger = config.get_logger('train')  # 创建指定名字的日志文件，返回的为标准logging类
-
-    # 生成dataloader
-    folds = config['data_loader']['args']['folds']
-    assert folds >= 1, 'par folds should >= 1'
-    if folds == 1:
-        # setup data_loader instances，实例化data_loader.data_loaders.MnistDataLoader（config.json中data_loader的type为这个）
-        data_loader = config.init_obj('data_loader', module_data)  # 返回一个名为data_loader的，module_data实例
-        valid_data_loader = data_loader.split_validation()
-        data_loaders, valid_data_loaders = [None, None]
-    else:
-        data_loaders, valid_data_loaders = get_k_folds_data_loaders(config, folds)
-        data_loader = data_loaders[0]
-        valid_data_loader = valid_data_loaders[0]
-
-    # 初始化模型
-    model, device = init_model()
-    logger.info(model)  # logging.info('输出信息')，而类model的输出信息为可训练参数
-    global_var.get_value('email_log').add_log(model.__str__())
 
     # get function handles of loss and metrics
     # config['loss']为'nll_loss'；criterion返回的实际是module_loss模块下的nll_loss函数的函数句柄，在special variables里面；
@@ -113,9 +71,47 @@ def main(config):
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
                       lr_scheduler=lr_scheduler,
-                      combine_data_loaders=[data_loaders, valid_data_loaders])
+                      folds=folds,
+                      fold_num=fold_num)
 
+    print(f'Fold: {fold_num}'.center(50, '*'))
     trainer.train()
+
+
+def main(config):
+    # 杂七杂八的输出与合理性验证
+    global_var._init()
+    if not config['ray_tune']['tune']:  # 不进行超参数搜索
+        subject = '测试log'
+    else:
+        subject = str()
+        for k, v in config['ray_tune']['args'].items():
+            subject = subject + k + ':' + str(v) + ';  '
+    global_var.set_value('email_log', send_email.Mylog(header='pytorch_template', subject=subject))
+
+    logger = config.get_logger('train')  # 创建指定名字的日志文件，返回的为标准logging类
+
+    folds = config['trainer']['folds']
+    assert folds >= 1, 'par folds should >= 1'
+    if folds == 1:
+        global_var.get_value('email_log').print_add('Not run with K-fold'.center(100, '*'))
+    else:
+        global_var.get_value('email_log').print_add('Run with K-fold'.center(100, '*'))
+
+    # 交叉验证并训练
+    split = StratifiedShuffleSplit(n_splits=folds, test_size=config['data_loader']['args']['validation_split'],
+                                   random_state=42)
+    targets = get_split_targets()
+    for fold_num, (train_index, valid_index) in enumerate(split.split(np.zeros_like(targets), targets)):
+        single_fold_model(folds, fold_num, logger, train_index, valid_index)
+
+    global_var.get_value('email_log').print_add(f'After {folds}-fold, average metric:'.center(100, '*'))
+    for k, v in BaseTrainer.fold_best.items():
+        BaseTrainer.fold_average[k] = sum(v) / len(v)
+        global_var.get_value('email_log').print_add(f'{k}: {BaseTrainer.fold_average[k]}')
+
+    if config['ray_tune']['tune']:
+        tune.report(loss=BaseTrainer.fold_average['val_loss'], accuracy=BaseTrainer.fold_average['val_accuracy'])
 
     if not config['ray_tune']['tune']:
         global_var.get_value('email_log').send_mail()
