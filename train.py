@@ -7,32 +7,36 @@ import data_loader.data_loaders as module_data
 import model.loss as module_loss
 import model.metric as module_metric
 import model.model as module_arch
-import utils
-from utils import send_email
+from PrivateUtils import util, send_email, global_var
 from parse_config import ConfigParser
 from trainer import Trainer
-from utils import prepare_device
-from utils import global_var
+from PrivateUtils.util import prepare_device
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data.sampler import SubsetRandomSampler
 from ray import tune
 from base.base_trainer import BaseTrainer
+from torchvision import datasets
 
 
 # fix random seeds for reproducibility
-SEED = 123
-torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-np.random.seed(SEED)
 
+
+# 自定义数据集获得targets
 def get_split_targets():
     csv_path = os.path.join(config['data_loader']['args']['data_dir'], 'train.csv')
     csv_data = pd.read_csv(csv_path)
     targets = np.array(csv_data['label'])
 
     return targets
+
+
+# 获得mnist数据集的targets
+def get_split_mnist_targets():
+    mnist = datasets.MNIST(config['data_loader']['args']['data_dir'], train=True, download=True)
+    return mnist.targets
 
 
 def single_fold_model(folds, fold_num, logger, train_index, valid_index):
@@ -51,6 +55,8 @@ def single_fold_model(folds, fold_num, logger, train_index, valid_index):
 
     # prepare for (multi-device) GPU training
     device, device_ids = prepare_device(config['n_gpu'])
+    global_var.get_value('email_log').print_add(f'train on{device}')
+
     model = model.to(device)
     if len(device_ids) > 1:
         model = torch.nn.DataParallel(model, device_ids=device_ids)
@@ -74,7 +80,7 @@ def single_fold_model(folds, fold_num, logger, train_index, valid_index):
                       folds=folds,
                       fold_num=fold_num)
 
-    print(f'Fold: {fold_num}'.center(50, '*'))
+    global_var.get_value('email_log').print_add(f'Fold: {fold_num}'.center(50, '*'))
     trainer.train()
 
 
@@ -99,9 +105,8 @@ def main(config):
         global_var.get_value('email_log').print_add('Run with K-fold'.center(100, '*'))
 
     # 交叉验证并训练
-    split = StratifiedShuffleSplit(n_splits=folds, test_size=config['data_loader']['args']['validation_split'],
-                                   random_state=42)
-    targets = get_split_targets()
+    split = StratifiedShuffleSplit(n_splits=folds, test_size=config['data_loader']['args']['validation_split'])
+    targets = get_split_mnist_targets()
     for fold_num, (train_index, valid_index) in enumerate(split.split(np.zeros_like(targets), targets)):
         single_fold_model(folds, fold_num, logger, train_index, valid_index)
 
@@ -115,10 +120,12 @@ def main(config):
 
     if not config['ray_tune']['tune']:
         global_var.get_value('email_log').send_mail()
-        # os.system('shutdown')
+        os.system('shutdown')
 
 
 if __name__ == '__main__':
+    util.seed_everything(42)
+
     args = argparse.ArgumentParser(description='PyTorch Template')
     args.add_argument('-c', '--config', default=None, type=str,
                       help='config file path (default: None)')

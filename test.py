@@ -11,12 +11,11 @@ import data_loader.data_loaders as module_data
 import model.loss as module_loss
 import model.metric as module_metric
 import model.model as module_arch
-import utils
+from PrivateUtils import util
 from parse_config import ConfigParser
 from sklearn.metrics import confusion_matrix
 import pathlib
-from utils import global_var
-from utils import send_email
+from PrivateUtils import global_var, send_email
 from PIL import Image
 import torchvision
 
@@ -125,7 +124,7 @@ def main(config):
 
     # 保存混淆矩阵
     if os.path.exists(os.path.join(root, 'num2text_label.json')):
-        num2text_label = utils.read_json(os.path.join(root, 'num2text_label.json'))
+        num2text_label = util.read_json(os.path.join(root, 'num2text_label.json'))
     else:  # 没有文字标签，那么还是用数字标签
         num2text_label = [i for i in range(len(cm))]
     text_label = [num2text_label[key] for key in num2text_label]

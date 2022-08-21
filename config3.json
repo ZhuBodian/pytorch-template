@@ -47,12 +47,12 @@
         "verbosity": 2,
         
         "monitor": "min val_loss",
-        "early_stop": 5,
+        "early_stop": 10,
 
         "tensorboard": true,
         "save_non_optimum": false,
 
-        "folds": 1
+        "folds": 5
     },
     "ray_tune": {
         "tune": false,

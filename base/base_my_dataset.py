@@ -1,16 +1,14 @@
 import torch
 from torchvision import datasets, transforms
 from torch.utils.data.sampler import SubsetRandomSampler
-import utils
 from base import BaseDataLoader
 import os, json
 import pandas as pd
 from torch.utils.data.dataset import Dataset
 from PIL import Image
 import numpy as np
-from utils import util
 from sklearn.model_selection import StratifiedShuffleSplit
-from utils import global_var
+from PrivateUtils import global_var
 """
 用作自建标准的图像文件问件夹结构为：
 root/images(包含了所有图片)

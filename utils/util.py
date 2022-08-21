@@ -4,7 +4,7 @@ import pandas as pd
 from pathlib import Path
 from itertools import repeat
 from collections import OrderedDict
-from utils import global_var
+from PrivateUtils.util import global_var
 import time
 import pickle
 import os

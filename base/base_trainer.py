@@ -2,19 +2,20 @@ import torch
 from abc import abstractmethod
 from numpy import inf
 from logger import TensorboardWriter
-from utils import global_var
+from PrivateUtils import global_var
 from ray import tune
 import os
 import model.model as module_arch
-from utils import prepare_device
-
+from PrivateUtils.util import prepare_device
 
 class BaseTrainer:
     fold_best = {
         "loss": [],
         "accuracy": [],
         "val_loss": [],
-        "val_accuracy": []
+        "val_accuracy": [],
+        "val_top_k_acc": [],
+        "top_k_acc": []
     }
     fold_average = {
         "loss": None,

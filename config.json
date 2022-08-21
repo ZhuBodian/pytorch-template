@@ -14,7 +14,7 @@
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.1,
-            "num_workers": 2,
+            "num_workers": 7,
             "assign_val_sample": false,
             "pics_no_less_than": 0,
             "augment_pics": 1
@@ -47,9 +47,16 @@
         "verbosity": 2,
         
         "monitor": "min val_loss",
-        "early_stop": 10,
+        "early_stop": 1,
 
         "tensorboard": true,
-        "save_non_optimum": false
+        "save_non_optimum": false,
+
+        "folds": 3
+    },
+    "ray_tune": {
+        "tune": false,
+        "args": {}
     }
+
 }

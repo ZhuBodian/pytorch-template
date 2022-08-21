@@ -1,9 +1,9 @@
 import os.path
-from utils import global_var
+from PrivateUtils import global_var
 from torchvision import datasets, transforms
 from base import BaseDataLoader
 from base import base_my_dataset
-import utils
+from PrivateUtils import util
 
 
 class MnistDataLoader(BaseDataLoader):
@@ -11,7 +11,7 @@ class MnistDataLoader(BaseDataLoader):
     MNIST data loading demo using BaseDataLoader
     """
     def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, num_workers=1, training=True,
-                 assign_val_sample=False, augment_pics=0):
+                 assign_val_sample=False, augment_pics=0, *args, **kwargs):
         trsfm = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.1307,), (0.3081,))
@@ -32,7 +32,7 @@ class TinyImageNetDataloader(BaseDataLoader):
                  fold_num=0):
         # "train"归一化是为了加快收敛速度，但要注意，如果"train"归一化了，但是“test”没归一化，会严重影响测试集准确率
         # （可能是因为归一化会造成色彩失真，从而导致特征发生改变？）
-        dataset_att = utils.read_json(os.path.join(data_dir, 'dataset_att.json'))
+        dataset_att = util.read_json(os.path.join(data_dir, 'dataset_att.json'))
         if 'norm_par' in dataset_att.keys():
             mean = dataset_att['norm_par']['mean']
             std = dataset_att['norm_par']['std']

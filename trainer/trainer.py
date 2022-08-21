@@ -5,13 +5,12 @@ import pandas as pd
 import torch
 from torchvision.utils import make_grid
 from base import BaseTrainer
-from utils import inf_loop, MetricTracker
-from utils import global_var
+from PrivateUtils import global_var
+from PrivateUtils.util import inf_loop, MetricTracker
 from PIL import Image
-import utils
-import pandas as pd
 import torchvision
 from ray import tune
+import PrivateUtils.util as utils
 
 
 class Trainer(BaseTrainer):
@@ -53,16 +52,16 @@ class Trainer(BaseTrainer):
         self.train_metrics.reset()  # 运行本次epoch之前，先把跟踪日志清0重置
 
         # timer1 = utils.MyTimer('Epoch总运行时长')
-        # print(f'EPOCH{epoch}'.center(100, '*'))
+        print(f'EPOCH{epoch}'.center(100, '*'))
         for batch_idx, (data, target) in enumerate(self.data_loader):
-            # self.print_current_batch_data_idx(batch_idx, data)
-
             # print(f'BATCH{batch_idx+1}'.center(50, '*'))
+
             # timer2 = utils.MyTimer('Batch总运行时长')
 
             # timer3 = utils.MyTimer('导入数据时长')
-            if not self.data_loader.dataset.load_all_images_to_memories:  #
-                data = self.get_batch_data(data, True)
+            if hasattr(self.data_loader.dataset, 'load_all_images_to_memories'):
+                if not self.data_loader.dataset.load_all_images_to_memories:  #
+                    data = self.get_batch_data(data, True)
             # timer3.stop()
 
             data, target = data.to(self.device), target.to(self.device)
@@ -91,7 +90,7 @@ class Trainer(BaseTrainer):
             if batch_idx == self.len_epoch:
                 break
 
-            #  timer5.stop()
+            # timer5.stop()
             # timer2.stop()
         log = self.train_metrics.result()
 
@@ -122,8 +121,9 @@ class Trainer(BaseTrainer):
         self.valid_metrics.reset()
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                if not self.data_loader.dataset.load_all_images_to_memories:  #
-                    data = self.get_batch_data(data, False)
+                if hasattr(self.data_loader.dataset, 'load_all_images_to_memories'):
+                    if not self.data_loader.dataset.load_all_images_to_memories:  #
+                        data = self.get_batch_data(data, False)
 
                 data, target = data.to(self.device), target.to(self.device)
 
@@ -166,9 +166,15 @@ class Trainer(BaseTrainer):
         return data
 
     def print_current_batch_data_idx(self, batch_idx, data):
+        """貌似是打印当前批次的数据在原始数据中的位置（第几行），但是应该有bug
+        @param batch_idx: 第batch_idx批
+        @param data: 全体数据
+        @return:
+        """
         print(f'BATCH{batch_idx + 1}'.center(10, '*'))
-        if not self.data_loader.dataset.load_all_images_to_memories:
-            print(data)
+        if hasattr(self.data_loader.dataset, 'load_all_images_to_memories'):
+            if not self.data_loader.dataset.load_all_images_to_memories:
+                print(data)
         else:
             np_all_data = self.data_loader.dataset.data.numpy()
             np_batch_data = data.numpy()
